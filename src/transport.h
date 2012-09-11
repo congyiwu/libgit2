@@ -60,7 +60,7 @@ typedef struct gitno_ssl {
  * references available to the remote. These references may have been
  * collected on connect, or we may build them now. For ls-remote,
  * nothing else is needed other than closing the connection.
- * Otherwise, the higher leves decide which objects we want to
+ * Otherwise, the higher levels decide which objects we want to
  * have. ->send_have() is used to tell the other end what we have. If
  * we do need to download a pack, ->download_pack() is called.
  *
