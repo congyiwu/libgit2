@@ -33,16 +33,17 @@ static int add_ref(transport_local *t, const char *name)
 
 	head = git__malloc(sizeof(git_remote_head));
 	GITERR_CHECK_ALLOC(head);
-	pkt = git__malloc(sizeof(git_pkt_ref));
+	pkt = git__calloc(1, sizeof(git_pkt_ref));
 	GITERR_CHECK_ALLOC(pkt);
 
 	head->name = git__strdup(name);
 	GITERR_CHECK_ALLOC(head->name);
 
 	if (git_reference_name_to_oid(&head->oid, t->repo, name) < 0) {
+		git__free(head->name);
 		git__free(head);
-		git__free(pkt->head.name);
 		git__free(pkt);
+		return -1;
 	}
 
 	pkt->type = GIT_PKT_REF;
