@@ -233,57 +233,25 @@ static int parse_unauthorized_response(
 	int *allowed_types,
 	int *auth_mechanism)
 {
-	DWORD index, buf_size, last_error;
-	int error = 0;
-	wchar_t *buf = NULL;
+	DWORD supported_schemes, first_scheme, target;
 
 	*allowed_types = 0;
 
-	for (index = 0; ; index++) {
-		/* Make a first call to ask for the size of the buffer to allocate
-		 * to hold the WWW-Authenticate header */
-		if (!WinHttpQueryHeaders(request, WINHTTP_QUERY_WWW_AUTHENTICATE,
-			WINHTTP_HEADER_NAME_BY_INDEX, WINHTTP_NO_OUTPUT_BUFFER,
-			&buf_size, &index))
-		{
-			last_error = GetLastError();
+	/* WinHttpQueryHeaders() must be called before WinHttpQueryAuthSchemes().
+	   We can assume this was already done, since we know we are unauthorized.
+	 */
 
-			if (ERROR_WINHTTP_HEADER_NOT_FOUND == last_error) {
-				/* End of enumeration */
-				break;
-			} else if (ERROR_INSUFFICIENT_BUFFER == last_error) {
-				git__free(buf);
-				buf = (wchar_t *)git__malloc(buf_size);
-
-				if (!buf) {
-					error = -1;
-					break;
-				}
-			} else {
-				giterr_set(GITERR_OS, "Failed to read WWW-Authenticate header");
-				error = -1;
-				break;
-			}
-		}
-
-		/* Actually receive the data into our now-allocated buffer */
-		if (!WinHttpQueryHeaders(request, WINHTTP_QUERY_WWW_AUTHENTICATE,
-			WINHTTP_HEADER_NAME_BY_INDEX, buf,
-			&buf_size, &index)) {
-			giterr_set(GITERR_OS, "Failed to read WWW-Authenticate header");
-			error = -1;
-			break;
-		}
-
-		if (!wcsncmp(buf, basic_authtype, 5) &&
-			(buf[5] == L'\0' || buf[5] == L' ')) {
-			*allowed_types |= GIT_CREDTYPE_USERPASS_PLAINTEXT;
-			*auth_mechanism = GIT_WINHTTP_AUTH_BASIC;
-		}
+	if (!WinHttpQueryAuthSchemes(request, &supported_schemes, &first_scheme, &target)) {
+		giterr_set(GITERR_OS, "Failed to get supported authorization schemes from server");
+		return -1;
 	}
 
-	git__free(buf);
-	return error;
+	if (supported_schemes & WINHTTP_AUTH_SCHEME_BASIC) {
+		*allowed_types |= GIT_CREDTYPE_USERPASS_PLAINTEXT;
+		*auth_mechanism = GIT_WINHTTP_AUTH_BASIC;
+	}
+
+	return 0;
 }
 
 static int write_chunk(HINTERNET request, const char *buffer, size_t len)
