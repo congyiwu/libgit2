@@ -1,12 +1,20 @@
 #!/bin/sh
-#creates push_src repo for libgit2 push tests.
+#Creates push_src repo for libgit2 push tests.
+#Because GitHub does not allow you to delete the default branch, all branches
+#in this repo are prefixed with "gittest_push_" to avoid conflicting with
+#existing branches on the target server repo.  This repo also contains an
+#orphaned dummy branch that we can push to set as the default in case a test
+#is running against an empty target repo.
 set -eu
 
 #Create src repo for push
 mkdir push_src
 pushd push_src
   git init
-  
+
+  #Use a prefixed default branch instead of "master"
+  git symbolic-ref HEAD refs/heads/gittest_push_master
+
   echo a > a.txt
   git add .
   git commit -m 'added a.txt'
@@ -16,26 +24,32 @@ pushd push_src
   git add .
   git commit -m 'added fold and fold/b.txt'
   
-  git branch b1 #b1 and b2 are the same
-  git branch b2
+  git branch gittest_push_b1 #b1 and b2 are the same
+  git branch gittest_push_b2
   
-  git checkout -b b3
+  git checkout -b gittest_push_b3
   echo edit >> a.txt
   git add .
   git commit -m 'edited a.txt'
 
-  git checkout -b b4 master
+  git checkout -b gittest_push_b4 gittest_push_master
   echo edit >> fold\b.txt
   git add .
   git commit -m 'edited fold\b.txt'
   
-  git checkout -b b5 master
+  git checkout -b gittest_push_b5 gittest_push_master
   git submodule add ../testrepo.git submodule
   git commit -m "added submodule named 'submodule' pointing to '../testrepo.git'"
   
-  git checkout master
-  git merge -m "merge b3, b4, and b5 to master" b3 b4 b5
+  git checkout gittest_push_master
+  git merge -m "merge b3, b4, and b5 to master" gittest_push_b3 gittest_push_b4 gittest_push_b5
 
+  #Dummy branch
+  git checkout --orphan gittest_push_dummy
+  echo dummy > dummy.txt
+  git add .
+  git commit -m 'added dummy.txt to dummy branch'
+  
   #Log commits to include in testcase
   git log --format=oneline --decorate --graph
   #*-.   951bbbb90e2259a4c8950db78946784fb53fcbce (HEAD, master) merge b3, b4, and b5 to master
